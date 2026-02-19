@@ -11,8 +11,11 @@ Telegram bot for translating between Russian (`ru`), English (`en`), German (`de
   - `de ru: Hallo`
   - `de→ru: Hallo`
 - Language alias normalization (Latin, Cyrillic, Armenian).
-- `/lang` inline selection for a default pair.
+- `/lang` inline selection for an active **bidirectional** pair.
+  - `en-ru` is treated the same as `ru-en`.
+  - When an active pair is set, messages without prefix are accepted in either of those two languages and translated to the other one.
 - `/history` in-memory per-user translation history.
+- Bot interface messages are shown in all 4 languages (RU/EN/DE/HY) for commands, help, and validation errors.
 - Input safety rules:
   - ignores empty messages;
   - rejects non-text updates;
@@ -22,7 +25,7 @@ Telegram bot for translating between Russian (`ru`), English (`en`), German (`de
 
 - `/start` — capabilities overview
 - `/help` — usage examples
-- `/lang` — select default pair
+- `/lang` — select active bidirectional pair
 - `/history` — recent translations
 
 ## Runtime Policy
@@ -73,6 +76,13 @@ source .venv/bin/activate
 pytest
 ```
 
+## Pair Behavior
+
+- Explicit prefix stays directional:
+  - `de-en Vater` means translate German -> English.
+- `/lang` active pair is bidirectional:
+  - if active pair is `English <-> Deutsch`, then plain `Vater` translates to English and plain `father` translates to German.
+
 ## Deployment Update (Old Mac)
 
 ```bash
@@ -96,6 +106,7 @@ pip install -r requirements.txt
 .
 ├── .github/
 ├── bot/
+├── docs/
 ├── tests/
 ├── .env.example
 ├── .gitignore
@@ -104,3 +115,9 @@ pip install -r requirements.txt
 ├── requirements.txt
 └── README.md
 ```
+
+## Documentation
+
+- `docs/architecture.md` — architecture and module responsibilities
+- `docs/commands.md` — command behavior and input modes
+- `docs/plan.md` — implementation status and next steps

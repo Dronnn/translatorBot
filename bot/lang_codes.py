@@ -4,6 +4,9 @@ import re
 from typing import Optional
 
 SUPPORTED_LANGUAGES: tuple[str, str, str, str] = ("ru", "en", "de", "hy")
+_LANGUAGE_ORDER: dict[str, int] = {
+    code: index for index, code in enumerate(SUPPORTED_LANGUAGES)
+}
 
 LANGUAGE_LABELS: dict[str, str] = {
     "ru": "Русский",
@@ -100,6 +103,15 @@ def normalize_pair(raw: str | None) -> Optional[tuple[str, str]]:
     if not src or not dst or src == dst:
         return None
     return src, dst
+
+
+def canonical_pair(src: str, dst: str) -> Optional[tuple[str, str]]:
+    """Make a language pair order-independent (en-ru == ru-en)."""
+    if src not in _LANGUAGE_ORDER or dst not in _LANGUAGE_ORDER or src == dst:
+        return None
+    if _LANGUAGE_ORDER[src] <= _LANGUAGE_ORDER[dst]:
+        return src, dst
+    return dst, src
 
 
 def is_supported_language(code: str | None) -> bool:

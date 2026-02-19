@@ -37,6 +37,8 @@ class TranslationService:
     async def translate(self, request: TranslationRequest) -> TranslationResult:
         if request.mode == ParseMode.EXPLICIT_PAIR:
             return await self._translate_explicit_pair(request)
+        if request.mode == ParseMode.DEFAULT_PAIR:
+            return await self._translate_default_pair(request)
         return await self._translate_auto_all(request.text)
 
     async def translate_auto_with_forced_source(
@@ -56,6 +58,7 @@ class TranslationService:
             text=text,
             requested_targets=targets,
             forced_source=source_language,
+            allowed_languages=list(SUPPORTED_LANGUAGES),
         )
         if not model_result.translations:
             return TranslationResult(
@@ -80,6 +83,7 @@ class TranslationService:
             text=request.text,
             requested_targets=[request.dst],
             forced_source=request.src,
+            allowed_languages=[request.src, request.dst],
         )
         translation = model_result.translations.get(request.dst, "").strip()
         if not translation:
@@ -94,11 +98,68 @@ class TranslationService:
             translations={request.dst: translation},
         )
 
+    async def _translate_default_pair(self, request: TranslationRequest) -> TranslationResult:
+        if not request.src or not request.dst:
+            return TranslationResult(
+                status=TranslationStatus.ERROR,
+                error_message="Default pair requires two languages.",
+            )
+
+        pair_languages = [request.src, request.dst]
+        if pair_languages[0] == pair_languages[1]:
+            return TranslationResult(
+                status=TranslationStatus.ERROR,
+                error_message="Invalid default pair configuration.",
+            )
+
+        model_result = await self._client.translate(
+            text=request.text,
+            requested_targets=pair_languages,
+            forced_source=None,
+            allowed_languages=pair_languages,
+        )
+
+        detected = model_result.detected_language
+        if detected not in pair_languages:
+            return TranslationResult(
+                status=TranslationStatus.ERROR,
+                error_message=(
+                    "Не удалось определить язык в выбранной паре. "
+                    "Укажите пару префиксом, например en-ru: ... "
+                    "или переключите режим через /lang."
+                ),
+            )
+
+        target = pair_languages[1] if detected == pair_languages[0] else pair_languages[0]
+        translation = model_result.translations.get(target, "").strip()
+
+        if not translation:
+            refill_result = await self._client.translate(
+                text=request.text,
+                requested_targets=[target],
+                forced_source=detected,
+                allowed_languages=pair_languages,
+            )
+            translation = refill_result.translations.get(target, "").strip()
+
+        if not translation:
+            return TranslationResult(
+                status=TranslationStatus.ERROR,
+                error_message="No translation returned for active pair.",
+            )
+
+        return TranslationResult(
+            status=TranslationStatus.OK,
+            source_language=detected,
+            translations={target: translation},
+        )
+
     async def _translate_auto_all(self, text: str) -> TranslationResult:
         model_result = await self._client.translate(
             text=text,
             requested_targets=list(SUPPORTED_LANGUAGES),
             forced_source=None,
+            allowed_languages=list(SUPPORTED_LANGUAGES),
         )
 
         detected = model_result.detected_language
@@ -118,6 +179,7 @@ class TranslationService:
                 text=text,
                 requested_targets=missing_targets,
                 forced_source=detected,
+                allowed_languages=list(SUPPORTED_LANGUAGES),
             )
             for lang in missing_targets:
                 value = refill_result.translations.get(lang, "").strip()

@@ -7,17 +7,61 @@ from telegram.ext import ContextTypes
 
 from bot.history import TranslationHistory
 from bot.keyboards import build_default_pair_keyboard, build_language_clarification_keyboard
-from bot.lang_codes import SUPPORTED_LANGUAGES, language_label, normalize_pair
+from bot.lang_codes import SUPPORTED_LANGUAGES, canonical_pair, language_label, normalize_pair
 from bot.parser import ParseErrorCode, ParseMode, parse_message_text
 from bot.translator import TranslationRequest, TranslationResult, TranslationService, TranslationStatus
 
-NON_TEXT_MESSAGE = "Я понимаю только текстовые сообщения."
-TOO_LONG_MESSAGE = "Текст слишком длинный. Отправьте до 500 символов."
-INVALID_PAIR_MESSAGE = "Не распознал пару языков. Формат: ru-en, de-hy и т.д."
-UNKNOWN_LANGUAGE_MESSAGE = "Не удалось определить язык. Пожалуйста, уточните язык кнопкой ниже."
-TRANSLATION_ERROR_MESSAGE = "Не удалось выполнить перевод. Попробуйте позже."
-HISTORY_DISABLED_MESSAGE = "История переводов отключена."
-HISTORY_EMPTY_MESSAGE = "История пока пуста."
+def _ui4(ru: str, en: str, de: str, hy: str) -> str:
+    return (
+        f"Русский: {ru}\n"
+        f"English: {en}\n"
+        f"Deutsch: {de}\n"
+        f"Հայերեն: {hy}"
+    )
+
+
+NON_TEXT_MESSAGE = _ui4(
+    "Я понимаю только текстовые сообщения.",
+    "I only understand text messages.",
+    "Ich verstehe nur Textnachrichten.",
+    "Ես հասկանում եմ միայն տեքստային հաղորդագրություններ։",
+)
+TOO_LONG_MESSAGE = _ui4(
+    "Текст слишком длинный. Отправьте до 500 символов.",
+    "Text is too long. Please send up to 500 characters.",
+    "Der Text ist zu lang. Bitte sende bis zu 500 Zeichen.",
+    "Տեքստը չափազանց երկար է։ Ուղարկեք մինչև 500 նիշ։",
+)
+INVALID_PAIR_MESSAGE = _ui4(
+    "Не распознал пару языков. Формат: ru-en, de-hy и т.д.",
+    "Language pair was not recognized. Format: ru-en, de-hy, etc.",
+    "Das Sprachpaar wurde nicht erkannt. Format: ru-en, de-hy usw.",
+    "Լեզվական զույգը չհաջողվեց ճանաչել։ Ձևաչափը՝ ru-en, de-hy և այլն։",
+)
+UNKNOWN_LANGUAGE_MESSAGE = _ui4(
+    "Не удалось определить язык. Пожалуйста, уточните язык кнопкой ниже.",
+    "Could not detect the language. Please select it using the button below.",
+    "Die Sprache konnte nicht erkannt werden. Bitte wähle sie mit der Schaltfläche unten.",
+    "Չհաջողվեց որոշել լեզուն։ Խնդրում ենք ընտրել այն ներքևի կոճակով։",
+)
+TRANSLATION_ERROR_MESSAGE = _ui4(
+    "Не удалось выполнить перевод. Попробуйте позже.",
+    "Could not complete translation. Please try again later.",
+    "Die Übersetzung konnte nicht ausgeführt werden. Bitte später erneut versuchen.",
+    "Չհաջողվեց կատարել թարգմանությունը։ Խնդրում ենք փորձել ավելի ուշ։",
+)
+HISTORY_DISABLED_MESSAGE = _ui4(
+    "История переводов отключена.",
+    "Translation history is disabled.",
+    "Der Übersetzungsverlauf ist deaktiviert.",
+    "Թարգմանությունների պատմությունը անջատված է։",
+)
+HISTORY_EMPTY_MESSAGE = _ui4(
+    "История пока пуста.",
+    "History is empty.",
+    "Der Verlauf ist leer.",
+    "Պատմությունը դեռ դատարկ է։",
+)
 
 
 def parse_error_message(code: ParseErrorCode) -> str | None:
@@ -69,11 +113,19 @@ class BotHandlers:
         if update.effective_message is None:
             return
 
-        text = (
-            "Я перевожу между 4 языками: ru, en, de, hy.\n"
-            "Отправьте текст, и я определю язык автоматически и дам перевод на остальные 3 языка.\n\n"
-            "Я также поддерживаю явную пару: de-ru: Hallo\n"
-            "Команды: /help, /lang, /history"
+        text = _ui4(
+            "Я перевожу между 4 языками: ru, en, de, hy. "
+            "Отправьте текст, и я определю язык автоматически и дам перевод на остальные 3 языка. "
+            "Также поддерживаю явную пару: de-ru: Hallo. Команды: /help, /lang, /history.",
+            "I translate between 4 languages: ru, en, de, hy. "
+            "Send text and I will detect the language automatically and return translations to the other 3 languages. "
+            "Explicit pair is also supported: de-ru: Hallo. Commands: /help, /lang, /history.",
+            "Ich übersetze zwischen 4 Sprachen: ru, en, de, hy. "
+            "Sende Text, ich erkenne die Sprache automatisch und liefere Übersetzungen in die anderen 3 Sprachen. "
+            "Explizites Paar wird auch unterstützt: de-ru: Hallo. Befehle: /help, /lang, /history.",
+            "Ես թարգմանում եմ 4 լեզուների միջև՝ ru, en, de, hy։ "
+            "Ուղարկեք տեքստ, և ես ավտոմատ կճանաչեմ լեզուն ու կտամ թարգմանություն մնացած 3 լեզուներով։ "
+            "Աջակցվում է նաև հստակ զույգ՝ de-ru: Hallo։ Հրամաններ՝ /help, /lang, /history։",
         )
         await update.effective_message.reply_text(text)
 
@@ -82,15 +134,27 @@ class BotHandlers:
         if update.effective_message is None:
             return
 
-        text = (
-            "Форматы ввода:\n"
-            "1) Авто-режим (на 3 оставшихся языка):\n"
-            "   Freundschaft\n\n"
-            "2) Явная пара в начале сообщения:\n"
-            "   de-ru: Hallo\n"
-            "   en-hy: Hello\n\n"
-            "Допустимы разделители пары: '-', '_', '→', пробел перед ':'\n"
-            "Команды: /start, /help, /lang, /history"
+        text = _ui4(
+            "Форматы ввода: "
+            "1) авто-режим: Freundschaft; "
+            "2) явная пара: de-ru: Hallo, en-hy: Hello; "
+            "3) /lang задает двунаправленную активную пару (например English <-> Deutsch). "
+            "Разделители пары: '-', '_', '→', пробел перед ':'. Команды: /start, /help, /lang, /history.",
+            "Input formats: "
+            "1) auto mode: Freundschaft; "
+            "2) explicit pair: de-ru: Hallo, en-hy: Hello; "
+            "3) /lang sets an active bidirectional pair (for example English <-> Deutsch). "
+            "Pair delimiters: '-', '_', '→', or space before ':'. Commands: /start, /help, /lang, /history.",
+            "Eingabeformate: "
+            "1) Auto-Modus: Freundschaft; "
+            "2) explizites Paar: de-ru: Hallo, en-hy: Hello; "
+            "3) /lang setzt ein aktives bidirektionales Paar (z. B. English <-> Deutsch). "
+            "Trennzeichen: '-', '_', '→' oder Leerzeichen vor ':'. Befehle: /start, /help, /lang, /history.",
+            "Մուտքի ձևաչափեր՝ "
+            "1) ավտո ռեժիմ՝ Freundschaft; "
+            "2) հստակ զույգ՝ de-ru: Hallo, en-hy: Hello; "
+            "3) /lang հրամանը սահմանում է ակտիվ երկկողմ զույգ (օրինակ՝ English <-> Deutsch)։ "
+            "Զույգի բաժանարարներ՝ '-', '_', '→' կամ բացատ ':'-ից առաջ։ Հրամաններ՝ /start, /help, /lang, /history։",
         )
         await update.effective_message.reply_text(text)
 
@@ -103,12 +167,28 @@ class BotHandlers:
         current_pair = self._default_pairs.get(user_id)
         if current_pair:
             src, dst = current_pair
-            current_line = f"Текущая пара по умолчанию: {language_label(src)} -> {language_label(dst)}"
+            current_line = _ui4(
+                f"Текущая активная пара по умолчанию: {language_label(src)} <-> {language_label(dst)}",
+                f"Current active default pair: {language_label(src)} <-> {language_label(dst)}",
+                f"Aktives Standardpaar: {language_label(src)} <-> {language_label(dst)}",
+                f"Ընթացիկ ակտիվ լռելյայն զույգ՝ {language_label(src)} <-> {language_label(dst)}",
+            )
         else:
-            current_line = "Текущий режим по умолчанию: Auto (перевод на 3 языка)"
+            current_line = _ui4(
+                "Текущий режим по умолчанию: Auto (перевод на 3 языка).",
+                "Current default mode: Auto (translate to 3 languages).",
+                "Aktueller Standardmodus: Auto (Übersetzung in 3 Sprachen).",
+                "Ընթացիկ լռելյայն ռեժիմ՝ Auto (թարգմանություն 3 լեզվով)։",
+            )
 
         await update.effective_message.reply_text(
-            f"{current_line}\n\nВыберите новую настройку:",
+            f"{current_line}\n\n"
+            + _ui4(
+                "Выберите новую настройку:",
+                "Choose a new setting:",
+                "Wähle eine neue Einstellung:",
+                "Ընտրեք նոր կարգավորում։",
+            ),
             reply_markup=build_default_pair_keyboard(),
         )
 
@@ -229,7 +309,14 @@ class BotHandlers:
 
         if query.data == "setpair:auto":
             self._default_pairs.pop(user_id, None)
-            await query.edit_message_text("Режим по умолчанию переключен на Auto.")
+            await query.edit_message_text(
+                _ui4(
+                    "Режим по умолчанию переключен на Auto.",
+                    "Default mode switched to Auto.",
+                    "Standardmodus auf Auto umgestellt.",
+                    "Լռելյայն ռեժիմը փոխվեց Auto-ի։",
+                )
+            )
             self._logger.info("default_pair_updated user_id=%s mode=auto", user_id)
             return
 
@@ -242,12 +329,30 @@ class BotHandlers:
         if not pair:
             await query.edit_message_text(INVALID_PAIR_MESSAGE)
             return
+        canonical = canonical_pair(pair[0], pair[1])
+        if not canonical:
+            await query.edit_message_text(INVALID_PAIR_MESSAGE)
+            return
 
-        self._default_pairs[user_id] = pair
+        self._default_pairs[user_id] = canonical
         await query.edit_message_text(
-            f"Пара по умолчанию сохранена: {language_label(pair[0])} -> {language_label(pair[1])}"
+            _ui4(
+                "Пара по умолчанию сохранена (двунаправленно): "
+                f"{language_label(canonical[0])} <-> {language_label(canonical[1])}",
+                "Default pair saved (bidirectional): "
+                f"{language_label(canonical[0])} <-> {language_label(canonical[1])}",
+                "Standardpaar gespeichert (bidirektional): "
+                f"{language_label(canonical[0])} <-> {language_label(canonical[1])}",
+                "Լռելյայն զույգը պահպանված է (երկկողմ): "
+                f"{language_label(canonical[0])} <-> {language_label(canonical[1])}",
+            )
         )
-        self._logger.info("default_pair_updated user_id=%s pair=%s-%s", user_id, src, dst)
+        self._logger.info(
+            "default_pair_updated user_id=%s pair=%s-%s",
+            user_id,
+            canonical[0],
+            canonical[1],
+        )
 
     async def on_clarify_callback(
         self,
@@ -264,7 +369,14 @@ class BotHandlers:
         _, source_language = query.data.split(":", 1)
         text = self._pending_clarification.pop(user_id, None)
         if not text:
-            await query.edit_message_text("Нет текста для уточнения. Отправьте сообщение заново.")
+            await query.edit_message_text(
+                _ui4(
+                    "Нет текста для уточнения. Отправьте сообщение заново.",
+                    "No text found for clarification. Please send the message again.",
+                    "Kein Text zur Klärung gefunden. Bitte sende die Nachricht erneut.",
+                    "Պարզաբանման համար տեքստ չի գտնվել։ Խնդրում ենք նորից ուղարկել հաղորդագրությունը։",
+                )
+            )
             return
 
         try:

@@ -1,6 +1,8 @@
+from typing import Tuple
+
 import pytest
 
-from bot.lang_codes import normalize_lang_code, normalize_pair
+from bot.lang_codes import canonical_pair, normalize_lang_code, normalize_pair
 
 
 @pytest.mark.parametrize(
@@ -35,10 +37,15 @@ def test_normalize_lang_code(raw: str, expected: str) -> None:
         ("de hy", ("de", "hy")),
     ],
 )
-def test_normalize_pair_valid(raw: str, expected: tuple[str, str]) -> None:
+def test_normalize_pair_valid(raw: str, expected: Tuple[str, str]) -> None:
     assert normalize_pair(raw) == expected
 
 
 @pytest.mark.parametrize("raw", ["", "ru", "xx-en", "ru-xx", "ru-ru", "xx yy"])
 def test_normalize_pair_invalid(raw: str) -> None:
     assert normalize_pair(raw) is None
+
+
+def test_canonical_pair_is_order_independent() -> None:
+    assert canonical_pair("en", "ru") == ("ru", "en")
+    assert canonical_pair("ru", "en") == ("ru", "en")

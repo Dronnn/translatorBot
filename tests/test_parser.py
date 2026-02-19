@@ -29,9 +29,18 @@ def test_parse_auto_all_without_default_pair() -> None:
 def test_parse_uses_default_pair_when_prefix_absent() -> None:
     parsed = parse_message_text("Hello", default_pair=("en", "hy"))
     assert parsed.ok
-    assert parsed.mode == ParseMode.EXPLICIT_PAIR
+    assert parsed.mode == ParseMode.DEFAULT_PAIR
     assert parsed.src == "en"
     assert parsed.dst == "hy"
+
+
+def test_explicit_pair_has_priority_over_default_pair() -> None:
+    parsed = parse_message_text("de-ru: Hallo", default_pair=("en", "hy"))
+    assert parsed.ok
+    assert parsed.mode == ParseMode.EXPLICIT_PAIR
+    assert parsed.src == "de"
+    assert parsed.dst == "ru"
+    assert parsed.text == "Hallo"
 
 
 def test_parse_invalid_pair_prefix() -> None:

@@ -11,6 +11,7 @@ MAX_INPUT_LENGTH = 500
 
 class ParseMode(str, Enum):
     EXPLICIT_PAIR = "explicit_pair"
+    DEFAULT_PAIR = "default_pair"
     AUTO_ALL = "auto_all"
 
 
@@ -98,7 +99,7 @@ def parse_message_text(
     if default_pair:
         src, dst = default_pair
         return ParsedInput(
-            mode=ParseMode.EXPLICIT_PAIR,
+            mode=ParseMode.DEFAULT_PAIR,
             text=candidate_text,
             src=src,
             dst=dst,

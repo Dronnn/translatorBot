@@ -7,11 +7,9 @@ from bot.lang_codes import LANGUAGE_LABELS, SUPPORTED_LANGUAGES
 
 def build_default_pair_keyboard() -> InlineKeyboardMarkup:
     buttons: list[InlineKeyboardButton] = []
-    for src in SUPPORTED_LANGUAGES:
-        for dst in SUPPORTED_LANGUAGES:
-            if src == dst:
-                continue
-            label = f"{LANGUAGE_LABELS[src]} -> {LANGUAGE_LABELS[dst]}"
+    for src_index, src in enumerate(SUPPORTED_LANGUAGES):
+        for dst in SUPPORTED_LANGUAGES[src_index + 1 :]:
+            label = f"{LANGUAGE_LABELS[src]} <-> {LANGUAGE_LABELS[dst]}"
             callback_data = f"setpair:{src}:{dst}"
             buttons.append(InlineKeyboardButton(label, callback_data=callback_data))
 

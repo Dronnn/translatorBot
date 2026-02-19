@@ -54,10 +54,12 @@ class OpenAITranslationClient:
         text: str,
         requested_targets: list[str],
         forced_source: str | None,
+        allowed_languages: list[str] | None = None,
     ) -> OpenAITranslationResult:
+        scope = allowed_languages or list(SUPPORTED_LANGUAGES)
         payload = {
             "input_text": text,
-            "allowed_languages": list(SUPPORTED_LANGUAGES),
+            "allowed_languages": scope,
             "requested_targets": requested_targets,
             "forced_source": forced_source,
             "requirements": {
