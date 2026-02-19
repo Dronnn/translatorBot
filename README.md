@@ -106,7 +106,6 @@ pip install -r requirements.txt
 .
 ├── .github/
 ├── bot/
-├── docs/
 ├── tests/
 ├── .env.example
 ├── .gitignore
@@ -115,9 +114,3 @@ pip install -r requirements.txt
 ├── requirements.txt
 └── README.md
 ```
-
-## Documentation
-
-- `docs/architecture.md` — architecture and module responsibilities
-- `docs/commands.md` — command behavior and input modes
-- `docs/plan.md` — implementation status and next steps

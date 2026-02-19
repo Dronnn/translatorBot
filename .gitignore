@@ -10,6 +10,7 @@ secrets*
 # Logs
 *.log
 logs/
+docs/
 
 # Python
 __pycache__/
