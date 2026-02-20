@@ -55,6 +55,45 @@ class FakeOpenAIClient:
         return "die Freundschaft (f.)"
 
 
+class FakeDefaultPairClient:
+    def __init__(self, response: OpenAITranslationResult) -> None:
+        self._response = response
+        self.translate_calls = 0
+        self.noun_calls = 0
+
+    async def translate(
+        self,
+        *,
+        text: str,
+        requested_targets: list[str],
+        forced_source: str | None,
+        allowed_languages: list[str] | None = None,
+    ) -> OpenAITranslationResult:
+        self.translate_calls += 1
+        return self._response
+
+    async def verb_forms(
+        self,
+        *,
+        source_language: str,
+        source_text: str,
+        known_translations: dict[str, str],
+    ) -> OpenAIVerbFormsResult:
+        return OpenAIVerbFormsResult(
+            is_verb=False,
+            infinitives={},
+            past_lookup={},
+            past_display={},
+        )
+
+    async def german_verb_governance(self, *, german_text: str) -> str | None:
+        return None
+
+    async def german_noun_article(self, *, german_text: str) -> str | None:
+        self.noun_calls += 1
+        return None
+
+
 @pytest.mark.asyncio
 async def test_auto_all_second_request_uses_cache_without_model_call(tmp_path) -> None:
     store = TranslationCacheStore(str(tmp_path / "cache.sqlite3"))
@@ -81,5 +120,106 @@ async def test_auto_all_second_request_uses_cache_without_model_call(tmp_path) -
     assert client.verb_forms_calls == 1
     assert client.noun_calls == 1
     assert client.governance_calls == 0
+
+    store.close()
+
+
+@pytest.mark.asyncio
+async def test_default_pair_unknown_detection_uses_active_target_as_source(tmp_path) -> None:
+    store = TranslationCacheStore(str(tmp_path / "cache.sqlite3"))
+    client = FakeDefaultPairClient(
+        OpenAITranslationResult(
+            detected_language="unknown",
+            translations={
+                "en": "organic waste",
+                "de": "Biogut",
+            },
+        )
+    )
+    service = TranslationService(client=client, cache_store=store)
+
+    result = await service.translate(
+        TranslationRequest(
+            mode=ParseMode.DEFAULT_PAIR,
+            text="biogut",
+            src="en",
+            dst="de",
+        )
+    )
+
+    assert result.status == TranslationStatus.OK
+    assert result.source_language == "de"
+    assert result.translations == {"en": "organic waste"}
+    assert client.translate_calls == 1
+
+    store.close()
+
+
+@pytest.mark.asyncio
+async def test_default_pair_ambiguous_detection_prefers_active_target_as_source(tmp_path) -> None:
+    store = TranslationCacheStore(str(tmp_path / "cache.sqlite3"))
+    client = FakeDefaultPairClient(
+        OpenAITranslationResult(
+            detected_language="en",
+            translations={
+                "en": "biogut",
+                "de": "biogut",
+            },
+        )
+    )
+    service = TranslationService(client=client, cache_store=store)
+
+    result = await service.translate(
+        TranslationRequest(
+            mode=ParseMode.DEFAULT_PAIR,
+            text="biogut",
+            src="en",
+            dst="de",
+        )
+    )
+
+    assert result.status == TranslationStatus.OK
+    assert result.source_language == "de"
+    assert result.translations == {"en": "biogut"}
+    assert client.translate_calls == 1
+
+    store.close()
+
+
+@pytest.mark.asyncio
+async def test_default_pair_cache_ambiguous_prefers_active_target_as_source(tmp_path) -> None:
+    store = TranslationCacheStore(str(tmp_path / "cache.sqlite3"))
+    store.save_full_translations(
+        translations={
+            "ru": "биогут",
+            "en": "biogut",
+            "de": "Biogut",
+            "hy": "բիոգուտ",
+        }
+    )
+    client = FakeDefaultPairClient(
+        OpenAITranslationResult(
+            detected_language="en",
+            translations={
+                "en": "biogut",
+                "de": "Biogut",
+            },
+        )
+    )
+    service = TranslationService(client=client, cache_store=store)
+
+    result = await service.translate(
+        TranslationRequest(
+            mode=ParseMode.DEFAULT_PAIR,
+            text="biogut",
+            src="en",
+            dst="de",
+        )
+    )
+
+    assert result.status == TranslationStatus.OK
+    assert result.source_language == "de"
+    assert result.translations == {"en": "biogut"}
+    assert client.translate_calls == 0
 
     store.close()

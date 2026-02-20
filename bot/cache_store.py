@@ -376,20 +376,21 @@ class TranslationCacheStore:
     ) -> str | None:
         if normalized_input in {str(row["ru_norm"] or ""), str(row["ru_past_norm"] or "")}:
             return "ru"
-        if normalized_input in {
-            str(row["en_norm"] or ""),
-            str(row["en_past_simple_norm"] or ""),
-            str(row["en_past_participle_norm"] or ""),
-        }:
-            return "en"
+        if normalized_input in {str(row["hy_norm"] or ""), str(row["hy_past_norm"] or "")}:
+            return "hy"
+        # Prefer German over English for ambiguous Latin-script forms that can belong to both.
         if normalized_input in {
             str(row["de_norm"] or ""),
             str(row["de_perfekt_norm"] or ""),
             str(row["de_prateritum_norm"] or ""),
         }:
             return "de"
-        if normalized_input in {str(row["hy_norm"] or ""), str(row["hy_past_norm"] or "")}:
-            return "hy"
+        if normalized_input in {
+            str(row["en_norm"] or ""),
+            str(row["en_past_simple_norm"] or ""),
+            str(row["en_past_participle_norm"] or ""),
+        }:
+            return "en"
         return None
 
     @staticmethod

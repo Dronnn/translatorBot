@@ -13,6 +13,7 @@ Telegram bot for translating between Russian (`ru`), English (`en`), German (`de
 - German noun output:
   - separate line with article and gender (for example `die Pappe (f.)`);
   - works even if noun input is lowercase (for example `biogut`).
+- If active pair is set and input language is ambiguous, source is assumed as the active pair target.
 - Explicit pair translation in message prefix:
   - `de-ru: Hallo`
   - `de-ru Hallo`

@@ -267,57 +267,62 @@ class TranslationService:
             language=request.src,
             text=request.text,
         )
+        src_target_translation = ""
         if src_cached_entry:
-            target_translation = src_cached_entry.translations.get(request.dst, "").strip()
-            if target_translation:
-                noun_article_line = await self._resolve_german_noun_article(
-                    source_language=request.src,
-                    source_text=request.text,
-                    translations={request.dst: target_translation},
-                    cached_noun_article_line=src_cached_entry.german_noun_article_line,
-                    cache_lookup_text=request.text,
-                )
-                self._logger.info(
-                    "translation_cache_hit mode=default source=%s target=%s",
-                    request.src,
-                    request.dst,
-                )
-                return TranslationResult(
-                    status=TranslationStatus.OK,
-                    source_language=request.src,
-                    translations={request.dst: target_translation},
-                    german_verb_governance=src_cached_entry.german_verb_governance,
-                    german_noun_article_line=noun_article_line,
-                    verb_past_forms_line=src_cached_entry.verb_past_forms_line,
-                )
+            src_target_translation = src_cached_entry.translations.get(request.dst, "").strip()
 
         dst_cached_entry = self._cache_store.find_by_language_text(
             language=request.dst,
             text=request.text,
         )
+        dst_target_translation = ""
         if dst_cached_entry:
-            target_translation = dst_cached_entry.translations.get(request.src, "").strip()
-            if target_translation:
-                noun_article_line = await self._resolve_german_noun_article(
-                    source_language=request.dst,
-                    source_text=request.text,
-                    translations={request.src: target_translation},
-                    cached_noun_article_line=dst_cached_entry.german_noun_article_line,
-                    cache_lookup_text=request.text,
-                )
-                self._logger.info(
-                    "translation_cache_hit mode=default source=%s target=%s",
-                    request.dst,
-                    request.src,
-                )
-                return TranslationResult(
-                    status=TranslationStatus.OK,
-                    source_language=request.dst,
-                    translations={request.src: target_translation},
-                    german_verb_governance=dst_cached_entry.german_verb_governance,
-                    german_noun_article_line=noun_article_line,
-                    verb_past_forms_line=dst_cached_entry.verb_past_forms_line,
-                )
+            dst_target_translation = dst_cached_entry.translations.get(request.src, "").strip()
+
+        # For active pair mode, prefer target-side cache hit to follow user ambiguity rule.
+        if dst_cached_entry and dst_target_translation:
+            noun_article_line = await self._resolve_german_noun_article(
+                source_language=request.dst,
+                source_text=request.text,
+                translations={request.src: dst_target_translation},
+                cached_noun_article_line=dst_cached_entry.german_noun_article_line,
+                cache_lookup_text=request.text,
+            )
+            self._logger.info(
+                "translation_cache_hit mode=default source=%s target=%s",
+                request.dst,
+                request.src,
+            )
+            return TranslationResult(
+                status=TranslationStatus.OK,
+                source_language=request.dst,
+                translations={request.src: dst_target_translation},
+                german_verb_governance=dst_cached_entry.german_verb_governance,
+                german_noun_article_line=noun_article_line,
+                verb_past_forms_line=dst_cached_entry.verb_past_forms_line,
+            )
+
+        if src_cached_entry and src_target_translation:
+            noun_article_line = await self._resolve_german_noun_article(
+                source_language=request.src,
+                source_text=request.text,
+                translations={request.dst: src_target_translation},
+                cached_noun_article_line=src_cached_entry.german_noun_article_line,
+                cache_lookup_text=request.text,
+            )
+            self._logger.info(
+                "translation_cache_hit mode=default source=%s target=%s",
+                request.src,
+                request.dst,
+            )
+            return TranslationResult(
+                status=TranslationStatus.OK,
+                source_language=request.src,
+                translations={request.dst: src_target_translation},
+                german_verb_governance=src_cached_entry.german_verb_governance,
+                german_noun_article_line=noun_article_line,
+                verb_past_forms_line=src_cached_entry.verb_past_forms_line,
+            )
 
         model_result = await self._client.translate(
             text=request.text,
@@ -326,16 +331,13 @@ class TranslationService:
             allowed_languages=pair_languages,
         )
 
-        detected = model_result.detected_language
-        if detected not in pair_languages:
-            return TranslationResult(
-                status=TranslationStatus.ERROR,
-                error_message=(
-                    "Не удалось определить язык в выбранной паре. "
-                    "Укажите пару префиксом, например en-ru: ... "
-                    "или переключите режим через /lang."
-                ),
-            )
+        detected = self._resolve_default_pair_source_language(
+            text=request.text,
+            detected=model_result.detected_language,
+            pair_source=request.src,
+            pair_target=request.dst,
+            model_translations=model_result.translations,
+        )
 
         target = pair_languages[1] if detected == pair_languages[0] else pair_languages[0]
         translation = model_result.translations.get(target, "").strip()
@@ -429,6 +431,12 @@ class TranslationService:
                     )
                     return fallback_result
             return TranslationResult(status=TranslationStatus.NEEDS_LANGUAGE_CLARIFICATION)
+
+        detected = self._maybe_prefer_german_for_ambiguous_latin_word(
+            text=text,
+            detected=detected,
+            german_translation=model_result.translations.get("de", ""),
+        )
 
         targets = [lang for lang in SUPPORTED_LANGUAGES if lang != detected]
         translations = {
@@ -796,6 +804,36 @@ class TranslationService:
         return value or None
 
     @staticmethod
+    def _resolve_default_pair_source_language(
+        *,
+        text: str,
+        detected: str,
+        pair_source: str,
+        pair_target: str,
+        model_translations: dict[str, str],
+    ) -> str:
+        if detected not in {pair_source, pair_target}:
+            return pair_target
+
+        # Ambiguous single-word forms (same spelling in both langs of active pair):
+        # follow user preference and treat active target as source.
+        if detected == pair_source:
+            target_side_value = str(model_translations.get(pair_target, "")).strip()
+            if TranslationService._is_ambiguous_single_word_match(text, target_side_value):
+                return pair_target
+        return detected
+
+    @staticmethod
+    def _is_ambiguous_single_word_match(text: str, translated: str) -> bool:
+        left = " ".join(text.strip().lower().split())
+        right = " ".join(translated.strip().lower().split())
+        if not left or not right:
+            return False
+        if " " in left or " " in right:
+            return False
+        return left == right
+
+    @staticmethod
     def _guess_fallback_source_language(text: str) -> str | None:
         lower_text = text.lower()
         if any("а" <= char <= "я" or char == "ё" for char in lower_text):
@@ -806,3 +844,26 @@ class TranslationService:
             # For unresolved Latin-script single words, prefer German.
             return "de"
         return None
+
+    @staticmethod
+    def _maybe_prefer_german_for_ambiguous_latin_word(
+        *,
+        text: str,
+        detected: str,
+        german_translation: str,
+    ) -> str:
+        if detected != "en":
+            return detected
+
+        raw = text.strip()
+        if not raw or " " in raw:
+            return detected
+        if not raw.isascii() or not raw.isalpha():
+            return detected
+
+        de_value = german_translation.strip()
+        if not de_value:
+            return detected
+        if de_value.lower() == raw.lower():
+            return "de"
+        return detected
