@@ -92,6 +92,13 @@ class TranslationService:
                 exclude_language=source_language,
             )
             if cached_targets:
+                noun_article_line = await self._resolve_german_noun_article(
+                    source_language=source_language,
+                    source_text=text,
+                    translations=cached_targets,
+                    cached_noun_article_line=cached_entry.german_noun_article_line,
+                    cache_lookup_text=text,
+                )
                 self._logger.info(
                     "translation_cache_hit mode=auto_forced source=%s",
                     source_language,
@@ -101,7 +108,7 @@ class TranslationService:
                     source_language=source_language,
                     translations=cached_targets,
                     german_verb_governance=cached_entry.german_verb_governance,
-                    german_noun_article_line=cached_entry.german_noun_article_line,
+                    german_noun_article_line=noun_article_line,
                     verb_past_forms_line=cached_entry.verb_past_forms_line,
                 )
 
@@ -184,6 +191,13 @@ class TranslationService:
         if cached_entry:
             cached_translation = cached_entry.translations.get(request.dst, "").strip()
             if cached_translation:
+                noun_article_line = await self._resolve_german_noun_article(
+                    source_language=request.src,
+                    source_text=request.text,
+                    translations={request.dst: cached_translation},
+                    cached_noun_article_line=cached_entry.german_noun_article_line,
+                    cache_lookup_text=request.text,
+                )
                 self._logger.info(
                     "translation_cache_hit mode=explicit source=%s target=%s",
                     request.src,
@@ -194,7 +208,7 @@ class TranslationService:
                     source_language=request.src,
                     translations={request.dst: cached_translation},
                     german_verb_governance=cached_entry.german_verb_governance,
-                    german_noun_article_line=cached_entry.german_noun_article_line,
+                    german_noun_article_line=noun_article_line,
                     verb_past_forms_line=cached_entry.verb_past_forms_line,
                 )
 
@@ -256,6 +270,13 @@ class TranslationService:
         if src_cached_entry:
             target_translation = src_cached_entry.translations.get(request.dst, "").strip()
             if target_translation:
+                noun_article_line = await self._resolve_german_noun_article(
+                    source_language=request.src,
+                    source_text=request.text,
+                    translations={request.dst: target_translation},
+                    cached_noun_article_line=src_cached_entry.german_noun_article_line,
+                    cache_lookup_text=request.text,
+                )
                 self._logger.info(
                     "translation_cache_hit mode=default source=%s target=%s",
                     request.src,
@@ -266,7 +287,7 @@ class TranslationService:
                     source_language=request.src,
                     translations={request.dst: target_translation},
                     german_verb_governance=src_cached_entry.german_verb_governance,
-                    german_noun_article_line=src_cached_entry.german_noun_article_line,
+                    german_noun_article_line=noun_article_line,
                     verb_past_forms_line=src_cached_entry.verb_past_forms_line,
                 )
 
@@ -277,6 +298,13 @@ class TranslationService:
         if dst_cached_entry:
             target_translation = dst_cached_entry.translations.get(request.src, "").strip()
             if target_translation:
+                noun_article_line = await self._resolve_german_noun_article(
+                    source_language=request.dst,
+                    source_text=request.text,
+                    translations={request.src: target_translation},
+                    cached_noun_article_line=dst_cached_entry.german_noun_article_line,
+                    cache_lookup_text=request.text,
+                )
                 self._logger.info(
                     "translation_cache_hit mode=default source=%s target=%s",
                     request.dst,
@@ -287,7 +315,7 @@ class TranslationService:
                     source_language=request.dst,
                     translations={request.src: target_translation},
                     german_verb_governance=dst_cached_entry.german_verb_governance,
-                    german_noun_article_line=dst_cached_entry.german_noun_article_line,
+                    german_noun_article_line=noun_article_line,
                     verb_past_forms_line=dst_cached_entry.verb_past_forms_line,
                 )
 
@@ -359,6 +387,13 @@ class TranslationService:
                 exclude_language=cached_match.matched_language,
             )
             if cached_targets:
+                noun_article_line = await self._resolve_german_noun_article(
+                    source_language=cached_match.matched_language,
+                    source_text=text,
+                    translations=cached_targets,
+                    cached_noun_article_line=cached_match.entry.german_noun_article_line,
+                    cache_lookup_text=text,
+                )
                 self._logger.info(
                     "translation_cache_hit mode=auto_all source=%s",
                     cached_match.matched_language,
@@ -368,7 +403,7 @@ class TranslationService:
                     source_language=cached_match.matched_language,
                     translations=cached_targets,
                     german_verb_governance=cached_match.entry.german_verb_governance,
-                    german_noun_article_line=cached_match.entry.german_noun_article_line,
+                    german_noun_article_line=noun_article_line,
                     verb_past_forms_line=cached_match.entry.verb_past_forms_line,
                 )
 
@@ -381,6 +416,18 @@ class TranslationService:
 
         detected = model_result.detected_language
         if detected == "unknown" or not is_supported_language(detected):
+            fallback_source = self._guess_fallback_source_language(text)
+            if fallback_source:
+                fallback_result = await self.translate_auto_with_forced_source(
+                    text=text,
+                    source_language=fallback_source,
+                )
+                if fallback_result.status == TranslationStatus.OK:
+                    self._logger.info(
+                        "translation_fallback_source_applied source=%s",
+                        fallback_source,
+                    )
+                    return fallback_result
             return TranslationResult(status=TranslationStatus.NEEDS_LANGUAGE_CLARIFICATION)
 
         targets = [lang for lang in SUPPORTED_LANGUAGES if lang != detected]
@@ -719,8 +766,12 @@ class TranslationService:
         if len(german_text.split()) > 3:
             return None
 
+        request_text = german_text
+        if len(german_text.split()) == 1 and german_text[:1].islower():
+            request_text = german_text[:1].upper() + german_text[1:]
+
         try:
-            noun_article_line = await self._client.german_noun_article(german_text=german_text)
+            noun_article_line = await self._client.german_noun_article(german_text=request_text)
         except Exception:  # noqa: BLE001
             return None
 
@@ -743,3 +794,15 @@ class TranslationService:
             return value or None
         value = translations.get("de", "").strip()
         return value or None
+
+    @staticmethod
+    def _guess_fallback_source_language(text: str) -> str | None:
+        lower_text = text.lower()
+        if any("а" <= char <= "я" or char == "ё" for char in lower_text):
+            return "ru"
+        if any("ա" <= char <= "ֆ" for char in lower_text):
+            return "hy"
+        if any(char.isalpha() for char in lower_text):
+            # For unresolved Latin-script single words, prefer German.
+            return "de"
+        return None

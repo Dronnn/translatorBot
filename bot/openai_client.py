@@ -309,6 +309,7 @@ class OpenAITranslationClient:
                 if not noun:
                     return None
 
+                noun = noun[:1].upper() + noun[1:]
                 return f"{article} {noun} ({gender}.)"
             except (json.JSONDecodeError, ValidationError, IndexError) as exc:
                 last_error = exc

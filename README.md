@@ -11,7 +11,8 @@ Telegram bot for translating between Russian (`ru`), English (`en`), German (`de
   - extra line with key past forms for `ru/en/de/hy`;
   - German governance line for verbs (for example `teilnehmen an + D`).
 - German noun output:
-  - separate line with article and gender (for example `die Pappe (f.)`).
+  - separate line with article and gender (for example `die Pappe (f.)`);
+  - works even if noun input is lowercase (for example `biogut`).
 - Explicit pair translation in message prefix:
   - `de-ru: Hallo`
   - `de-ru Hallo`
