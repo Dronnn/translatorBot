@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import atexit
 import logging
 
 from telegram import BotCommand
@@ -10,6 +12,7 @@ from telegram.ext import (
     filters,
 )
 
+from bot.cache_store import TranslationCacheStore
 from bot.config import ConfigError, load_config
 from bot.handlers import BotHandlers
 from bot.history import TranslationHistory
@@ -33,6 +36,8 @@ async def _post_init(application: Application) -> None:
 def create_application() -> Application:
     config = load_config()
     setup_logging(level=config.log_level)
+    cache_store = TranslationCacheStore(config.translation_cache_db_path)
+    atexit.register(cache_store.close)
 
     openai_client = OpenAITranslationClient(
         api_key=config.openai_api_key,
@@ -40,7 +45,7 @@ def create_application() -> Application:
         timeout_seconds=config.openai_timeout_seconds,
         max_retries=config.openai_max_retries,
     )
-    translator = TranslationService(openai_client)
+    translator = TranslationService(openai_client, cache_store)
     history = TranslationHistory(
         enabled=config.history_enabled,
         limit=config.default_history_limit,

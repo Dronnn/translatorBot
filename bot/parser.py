@@ -4,13 +4,14 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
-from bot.lang_codes import normalize_pair
+from bot.lang_codes import normalize_lang_code, normalize_pair
 
 MAX_INPUT_LENGTH = 500
 
 
 class ParseMode(str, Enum):
     EXPLICIT_PAIR = "explicit_pair"
+    FORCED_SOURCE_ALL = "forced_source_all"
     DEFAULT_PAIR = "default_pair"
     AUTO_ALL = "auto_all"
 
@@ -56,12 +57,13 @@ def parse_message_text(
     raw_text: str | None,
     default_pair: tuple[str, str] | None = None,
 ) -> ParsedInput:
-    """Parse user text into explicit-pair or auto-all translation request."""
+    """Parse user text into translation request mode."""
     text = (raw_text or "").strip()
     if not text:
         return ParsedInput(error=ParseErrorCode.EMPTY)
 
     explicit_pair: tuple[str, str] | None = None
+    forced_source: str | None = None
     candidate_text = text
 
     # Support explicit pair without colon: `de-en Hallo`
@@ -73,6 +75,11 @@ def parse_message_text(
             if maybe_pair:
                 explicit_pair = maybe_pair
                 candidate_text = parts[1].strip()
+            else:
+                maybe_source = normalize_lang_code(parts[0])
+                if maybe_source:
+                    forced_source = maybe_source
+                    candidate_text = parts[1].strip()
 
     if ":" in text:
         prefix, remainder = text.split(":", 1)
@@ -80,8 +87,12 @@ def parse_message_text(
         if maybe_pair:
             explicit_pair = maybe_pair
             candidate_text = remainder.strip()
-        elif _looks_like_pair_prefix(prefix):
-            return ParsedInput(error=ParseErrorCode.INVALID_PAIR)
+        elif maybe_source := normalize_lang_code(prefix):
+            forced_source = maybe_source
+            candidate_text = remainder.strip()
+        else:
+            if _looks_like_pair_prefix(prefix):
+                return ParsedInput(error=ParseErrorCode.INVALID_PAIR)
 
     length_error = _validate_text_length(candidate_text)
     if length_error:
@@ -94,6 +105,13 @@ def parse_message_text(
             text=candidate_text,
             src=src,
             dst=dst,
+        )
+
+    if forced_source:
+        return ParsedInput(
+            mode=ParseMode.FORCED_SOURCE_ALL,
+            text=candidate_text,
+            src=forced_source,
         )
 
     if default_pair:

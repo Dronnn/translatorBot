@@ -11,6 +11,7 @@ secrets*
 *.log
 logs/
 docs/
+data/
 
 # Python
 __pycache__/
@@ -23,3 +24,6 @@ __pycache__/
 # Virtual environments
 .venv/
 venv/
+
+# Local session rules (not tracked)
+AGENTS.md

@@ -5,11 +5,21 @@ Telegram bot for translating between Russian (`ru`), English (`en`), German (`de
 ## Features
 
 - Auto-detect input language and translate into the other 3 supported languages.
+- Persistent SQLite cache for 4-language translation sets (`ru/en/de/hy`), so repeated words are served from DB.
+- Verb-aware output:
+  - if input is a verb (including past forms), translations are normalized to infinitive forms;
+  - extra line with key past forms for `ru/en/de/hy`;
+  - German governance line for verbs (for example `teilnehmen an + D`).
+- German noun output:
+  - separate line with article and gender (for example `die Pappe (f.)`).
 - Explicit pair translation in message prefix:
   - `de-ru: Hallo`
   - `de-ru Hallo`
   - `de ru: Hallo`
   - `de→ru: Hallo`
+- Forced-source mode (translate to the other 3 languages without auto-detection):
+  - `de: Hallo`
+  - `de Hallo`
 - Language alias normalization (Latin, Cyrillic, Armenian).
 - `/lang` inline selection for an active **bidirectional** pair.
   - `en-ru` is treated the same as `ru-en`.
@@ -43,6 +53,7 @@ Copy `.env.example` to `.env` on runtime host and set real values.
 | `TELEGRAM_BOT_TOKEN` | yes | - | BotFather token |
 | `OPENAI_API_KEY` | yes | - | OpenAI API key |
 | `OPENAI_MODEL` | no | `gpt-5.2` | Model for translation |
+| `TRANSLATION_CACHE_DB_PATH` | no | `data/translation_cache.sqlite3` | Local SQLite path for translation cache |
 | `DEFAULT_HISTORY_LIMIT` | no | `10` | `/history` depth |
 | `HISTORY_ENABLED` | no | `true` | Enable history |
 | `LOG_LEVEL` | no | `INFO` | Log level |
@@ -80,6 +91,8 @@ pytest
 
 - Explicit prefix stays directional:
   - `de-en Vater` means translate German -> English.
+- Forced source keeps language fixed and returns the other 3 languages:
+  - `de: Vater` and `de Vater` skip language detection.
 - `/lang` active pair is bidirectional:
   - if active pair is `English <-> Deutsch`, then plain `Vater` translates to English and plain `father` translates to German.
 

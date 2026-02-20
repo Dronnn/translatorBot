@@ -15,6 +15,7 @@ class Config:
     telegram_bot_token: str
     openai_api_key: str
     openai_model: str = "gpt-5.2"
+    translation_cache_db_path: str = "data/translation_cache.sqlite3"
     default_history_limit: int = 10
     history_enabled: bool = True
     log_level: str = "INFO"
@@ -48,6 +49,10 @@ def load_config() -> Config:
     openai_api_key = _require_env("OPENAI_API_KEY")
 
     openai_model = os.getenv("OPENAI_MODEL", "gpt-5.2").strip() or "gpt-5.2"
+    translation_cache_db_path = (
+        os.getenv("TRANSLATION_CACHE_DB_PATH", "data/translation_cache.sqlite3").strip()
+        or "data/translation_cache.sqlite3"
+    )
 
     try:
         default_history_limit = int(os.getenv("DEFAULT_HISTORY_LIMIT", "10"))
@@ -77,6 +82,7 @@ def load_config() -> Config:
         telegram_bot_token=telegram_bot_token,
         openai_api_key=openai_api_key,
         openai_model=openai_model,
+        translation_cache_db_path=translation_cache_db_path,
         default_history_limit=default_history_limit,
         history_enabled=history_enabled,
         log_level=log_level,

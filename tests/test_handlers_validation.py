@@ -38,3 +38,42 @@ def test_format_translation_response_auto_all() -> None:
     assert "- Русский: дружба" in formatted
     assert "- English: friendship" in formatted
     assert "- Հայերեն: բարեկամություն" in formatted
+
+
+def test_format_translation_response_includes_german_governance() -> None:
+    result = TranslationResult(
+        status=TranslationStatus.OK,
+        source_language="ru",
+        translations={"de": "teilnehmen"},
+        german_verb_governance="teilnehmen an + D",
+    )
+    formatted = format_translation_response(result, ParseMode.EXPLICIT_PAIR)
+    assert "- Deutsch: teilnehmen" in formatted
+    assert "Управление (de): teilnehmen an + D" in formatted
+
+
+def test_format_translation_response_includes_past_forms_line() -> None:
+    result = TranslationResult(
+        status=TranslationStatus.OK,
+        source_language="de",
+        translations={"ru": "участвовать"},
+        verb_past_forms_line=(
+            "DE: Perfekt: hat teilgenommen; Prateritum: nahm teil | "
+            "EN: Past Simple: participated; Past Participle: participated | "
+            "RU: участвовал/участвовала | HY: մասնակցեց"
+        ),
+    )
+    formatted = format_translation_response(result, ParseMode.EXPLICIT_PAIR)
+    assert "Прошедшие формы:" in formatted
+    assert "Prateritum: nahm teil" in formatted
+
+
+def test_format_translation_response_includes_german_noun_article_line() -> None:
+    result = TranslationResult(
+        status=TranslationStatus.OK,
+        source_language="en",
+        translations={"de": "Pappe"},
+        german_noun_article_line="die Pappe (f.)",
+    )
+    formatted = format_translation_response(result, ParseMode.EXPLICIT_PAIR)
+    assert "Артикль/род (de): die Pappe (f.)" in formatted

@@ -19,6 +19,24 @@ def test_parse_explicit_pair_without_colon() -> None:
     assert parsed.text == "Vater"
 
 
+def test_parse_forced_source_with_colon() -> None:
+    parsed = parse_message_text("de: Vater")
+    assert parsed.ok
+    assert parsed.mode == ParseMode.FORCED_SOURCE_ALL
+    assert parsed.src == "de"
+    assert parsed.dst is None
+    assert parsed.text == "Vater"
+
+
+def test_parse_forced_source_without_colon() -> None:
+    parsed = parse_message_text("de Vater")
+    assert parsed.ok
+    assert parsed.mode == ParseMode.FORCED_SOURCE_ALL
+    assert parsed.src == "de"
+    assert parsed.dst is None
+    assert parsed.text == "Vater"
+
+
 def test_parse_auto_all_without_default_pair() -> None:
     parsed = parse_message_text("Freundschaft")
     assert parsed.ok
@@ -40,6 +58,14 @@ def test_explicit_pair_has_priority_over_default_pair() -> None:
     assert parsed.mode == ParseMode.EXPLICIT_PAIR
     assert parsed.src == "de"
     assert parsed.dst == "ru"
+    assert parsed.text == "Hallo"
+
+
+def test_forced_source_has_priority_over_default_pair() -> None:
+    parsed = parse_message_text("de: Hallo", default_pair=("en", "hy"))
+    assert parsed.ok
+    assert parsed.mode == ParseMode.FORCED_SOURCE_ALL
+    assert parsed.src == "de"
     assert parsed.text == "Hallo"
 
 

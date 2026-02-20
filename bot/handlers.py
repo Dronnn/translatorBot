@@ -89,6 +89,15 @@ def format_translation_response(
         label = language_label(lang)
         lines.append(f"- {label}: {translations[lang]}")
 
+    if result.verb_past_forms_line:
+        lines.append(f"Прошедшие формы: {result.verb_past_forms_line}")
+
+    if result.german_noun_article_line:
+        lines.append(f"Артикль/род (de): {result.german_noun_article_line}")
+
+    if result.german_verb_governance:
+        lines.append(f"Управление (de): {result.german_verb_governance}")
+
     return "\n".join(lines).strip()
 
 
@@ -116,16 +125,24 @@ class BotHandlers:
         text = _ui4(
             "Я перевожу между 4 языками: ru, en, de, hy. "
             "Отправьте текст, и я определю язык автоматически и дам перевод на остальные 3 языка. "
-            "Также поддерживаю явную пару: de-ru: Hallo. Команды: /help, /lang, /history.",
+            "Также поддерживаю явную пару: de-ru: Hallo "
+            "и фиксированный исходный язык: de: Hallo или de Hallo. "
+            "Команды: /help, /lang, /history.",
             "I translate between 4 languages: ru, en, de, hy. "
             "Send text and I will detect the language automatically and return translations to the other 3 languages. "
-            "Explicit pair is also supported: de-ru: Hallo. Commands: /help, /lang, /history.",
+            "Explicit pair is also supported: de-ru: Hallo, "
+            "and forced source language: de: Hallo or de Hallo. "
+            "Commands: /help, /lang, /history.",
             "Ich übersetze zwischen 4 Sprachen: ru, en, de, hy. "
             "Sende Text, ich erkenne die Sprache automatisch und liefere Übersetzungen in die anderen 3 Sprachen. "
-            "Explizites Paar wird auch unterstützt: de-ru: Hallo. Befehle: /help, /lang, /history.",
+            "Explizites Paar wird auch unterstützt: de-ru: Hallo, "
+            "sowie feste Ausgangssprache: de: Hallo oder de Hallo. "
+            "Befehle: /help, /lang, /history.",
             "Ես թարգմանում եմ 4 լեզուների միջև՝ ru, en, de, hy։ "
             "Ուղարկեք տեքստ, և ես ավտոմատ կճանաչեմ լեզուն ու կտամ թարգմանություն մնացած 3 լեզուներով։ "
-            "Աջակցվում է նաև հստակ զույգ՝ de-ru: Hallo։ Հրամաններ՝ /help, /lang, /history։",
+            "Աջակցվում է նաև հստակ զույգ՝ de-ru: Hallo, "
+            "և ֆիքսված ելքային լեզու՝ de: Hallo կամ de Hallo։ "
+            "Հրամաններ՝ /help, /lang, /history։",
         )
         await update.effective_message.reply_text(text)
 
@@ -138,22 +155,26 @@ class BotHandlers:
             "Форматы ввода: "
             "1) авто-режим: Freundschaft; "
             "2) явная пара: de-ru: Hallo, en-hy: Hello; "
-            "3) /lang задает двунаправленную активную пару (например English <-> Deutsch). "
+            "3) только исходный язык (перевод на остальные 3): de: Hallo или de Hallo; "
+            "4) /lang задает двунаправленную активную пару (например English <-> Deutsch). "
             "Разделители пары: '-', '_', '→', пробел перед ':'. Команды: /start, /help, /lang, /history.",
             "Input formats: "
             "1) auto mode: Freundschaft; "
             "2) explicit pair: de-ru: Hallo, en-hy: Hello; "
-            "3) /lang sets an active bidirectional pair (for example English <-> Deutsch). "
+            "3) source-only mode (translate to other 3): de: Hallo or de Hallo; "
+            "4) /lang sets an active bidirectional pair (for example English <-> Deutsch). "
             "Pair delimiters: '-', '_', '→', or space before ':'. Commands: /start, /help, /lang, /history.",
             "Eingabeformate: "
             "1) Auto-Modus: Freundschaft; "
             "2) explizites Paar: de-ru: Hallo, en-hy: Hello; "
-            "3) /lang setzt ein aktives bidirektionales Paar (z. B. English <-> Deutsch). "
+            "3) nur Ausgangssprache (Übersetzung in die anderen 3): de: Hallo oder de Hallo; "
+            "4) /lang setzt ein aktives bidirektionales Paar (z. B. English <-> Deutsch). "
             "Trennzeichen: '-', '_', '→' oder Leerzeichen vor ':'. Befehle: /start, /help, /lang, /history.",
             "Մուտքի ձևաչափեր՝ "
             "1) ավտո ռեժիմ՝ Freundschaft; "
             "2) հստակ զույգ՝ de-ru: Hallo, en-hy: Hello; "
-            "3) /lang հրամանը սահմանում է ակտիվ երկկողմ զույգ (օրինակ՝ English <-> Deutsch)։ "
+            "3) միայն ելքային լեզու (թարգմանություն մնացած 3 լեզուներով)՝ de: Hallo կամ de Hallo; "
+            "4) /lang հրամանը սահմանում է ակտիվ երկկողմ զույգ (օրինակ՝ English <-> Deutsch)։ "
             "Զույգի բաժանարարներ՝ '-', '_', '→' կամ բացատ ':'-ից առաջ։ Հրամաններ՝ /start, /help, /lang, /history։",
         )
         await update.effective_message.reply_text(text)
